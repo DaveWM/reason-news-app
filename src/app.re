@@ -1,9 +1,10 @@
 [%bs.raw {|require('./app.css')|}];
 
-[@bs.module] external logo : string = "./logo.svg";
-
 type article = {
-  title: string
+  title: string,
+  description: string,
+  urlToImage: option(string),
+  url: string
 };
 
 type response = {
@@ -30,12 +31,20 @@ let isBlank = (s: string) => (s |> String.length) < 3;
 
 let articleDecoder = (json: Js.Json.t): article => 
   Json.Decode.{
-    title: json |> field("title", string)
+    title: json |> field("title", string),
+    description: json |> field("description", string),
+    urlToImage: json |> optional(field("urlToImage", string)),
+    url: json |> field("url", string)
   };
 
 let decodeJson = (json: Js.Json.t): response => 
   Json.Decode.{
     articles: json |> field("articles", list(articleDecoder))
+  };
+
+  let toValue = (opt: option('a), default: 'a): 'a => switch opt {
+    | None => default
+    | Some(x) => x
   };
 
 let make = (_children) => {
@@ -57,16 +66,22 @@ let make = (_children) => {
     | ResponseReceived(response) => ReasonReact.Update({...state, articles: response.articles})
     },
   render: ({state, send}) =>
-    <div className="App">
+    <div className="App container">
       <div className="App-header">
         <h1>(ReasonReact.string("ReasonML News Search"))</h1>
       </div>
       <div className="App-content">
-        <input type_="text" onChange=(ev => (ReactEvent.Form.target(ev)##value) ->SearchQueryUpdated ->send) />
-        <p>(ReasonReact.string(List.length(state.articles) |> string_of_int))</p>
-        <ul>
-          (ReasonReact.array(Array.of_list(List.map(a => <li>(ReasonReact.string(a.title))</li>, state.articles))))
-        </ul>
+        <input className="form-control" type_="text" onChange=(ev => (ReactEvent.Form.target(ev)##value) ->SearchQueryUpdated ->send)  placeholder="Type your search query here..."/>
+          (ReasonReact.array(Array.of_list(List.map(a => 
+          <div className="media article">
+            <img src=(a.urlToImage ->toValue("https://via.placeholder.com/80")) className="mr-3 align-self-center" />
+            <div className="media-body">
+              <h5 className="mt-0">(ReasonReact.string(a.title))</h5>
+              <p>(ReasonReact.string(a.description))</p>
+              <a href=(a.url)>(ReasonReact.string("Read More..."))</a>
+            </div>
+          </div>, 
+            state.articles))))
       </div>
     </div>
 };
